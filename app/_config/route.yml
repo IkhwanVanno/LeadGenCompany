@@ -1,0 +1,8 @@
+---
+Name: approutes
+After: '#rootroutes'
+---
+SilverStripe\Control\Director:
+  rules:
+    '' : App\Page\CompanyPageController
+    

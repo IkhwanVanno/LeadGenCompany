@@ -1,12 +1,18 @@
 <?php
 
+use SilverStripe\Control\Email\Email;
 use SilverStripe\Control\HTTPRequest;
+use SilverStripe\Control\HTTPResponse;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\Form;
 use SilverStripe\Forms\FormAction;
 use SilverStripe\Forms\RequiredFields;
 use SilverStripe\Forms\TextareaField;
 use SilverStripe\Forms\TextField;
+use SilverStripe\Forms\EmailField;
+use SilverStripe\SiteConfig\SiteConfig;
+use SilverStripe\Core\Convert;
+use SilverStripe\Security\SecurityToken;
 
 class CompanyPageController extends PageController
 {
@@ -18,10 +24,15 @@ class CompanyPageController extends PageController
         'ContactForm',
     ];
 
+    private static $url_handlers = [
+        'view/$ID' => 'view',
+        'edit/$ID' => 'edit',
+        'delete/$ID' => 'delete',
+    ];
+
     public function init()
     {
         parent::init();
-        // Additional initialization code can go here
     }
 
     public function index()
@@ -33,34 +44,41 @@ class CompanyPageController extends PageController
         $Gallery = Gallery::get();
         $Testimonial = Testimonial::get();
         $Contact = Contact::get();
-        return $this->customise(
-            [
-                'Hero' => $Hero,
-                'AboutImage' => $AboutImage,
-                'Treatments' => $Treatments,
-                'Packages' => $Packages,
-                'Gallery' => $Gallery,
-                'Testimonial' => $Testimonial,
-                'Contact' => $Contact,
-            ]
-        )->renderWith(['CompanyPage', 'Page']);
+
+        return $this->customise([
+            'Hero' => $Hero,
+            'AboutImage' => $AboutImage,
+            'Treatments' => $Treatments,
+            'Packages' => $Packages,
+            'Gallery' => $Gallery,
+            'Testimonial' => $Testimonial,
+            'Contact' => $Contact,
+        ])->renderWith(['CompanyPage', 'Page']);
     }
 
-    public function view($id)
+    public function view(HTTPRequest $request)
     {
-        // Logic for viewing a specific company page
+        $id = $request->param('ID');
+        if (!$id) {
+            return $this->httpError(404, 'Page not found');
+        }
     }
 
-    public function edit($id)
+    public function edit(HTTPRequest $request)
     {
-        // Logic for editing a specific company page
+        $id = $request->param('ID');
+        if (!$id) {
+            return $this->httpError(404, 'Page not found');
+        }
     }
 
-    public function delete($id)
+    public function delete(HTTPRequest $request)
     {
-        // Logic for deleting a specific company page
+        $id = $request->param('ID');
+        if (!$id) {
+            return $this->httpError(404, 'Page not found');
+        }
     }
-
 
     public function ContactForm()
     {
@@ -69,9 +87,8 @@ class CompanyPageController extends PageController
             ->setAttribute('placeholder', 'Enter your name')
             ->setAttribute('required', true);
 
-        $emailField = TextField::create('UserEmail', 'Your Email')
+        $emailField = EmailField::create('UserEmail', 'Your Email')
             ->addExtraClass('form-control mb-3')
-            ->setAttribute('type', 'email')
             ->setAttribute('placeholder', 'Enter your email')
             ->setAttribute('required', true);
 
@@ -97,17 +114,89 @@ class CompanyPageController extends PageController
         $form = Form::create($this, 'ContactForm', $fields, $actions, $validator);
         $form->addExtraClass('custom-contact-form');
 
+        $form->enableSecurityToken();
+
         return $form;
     }
 
-
     public function handleContactSubmit($data, Form $form, HTTPRequest $request)
     {
-        $contact = Contact::create();
-        $form->saveInto($contact);
-        $contact->write();
+        try {
+            $userName = Convert::raw2xml($data['UserName']);
+            $userEmail = Convert::raw2xml($data['UserEmail']);
+            $message = Convert::raw2xml($data['Message']);
 
-        $form->sessionMessage('Pesan berhasil dikirim!', 'good');
+            if (!filter_var($userEmail, FILTER_VALIDATE_EMAIL)) {
+                $form->sessionMessage('Email tidak valid!', 'bad');
+                return $this->redirectBack();
+            }
+
+            $contact = Contact::create();
+            $contact->UserName = $userName;
+            $contact->UserEmail = $userEmail;
+            $contact->Message = $message;
+            $contact->write();
+
+            $this->sendContactEmail($userName, $userEmail, $message);
+            $form->sessionMessage('Pesan berhasil dikirim!', 'good');
+
+        } catch (Exception $e) {
+            error_log('Contact form error: ' . $e->getMessage());
+            $form->sessionMessage('Terjadi kesalahan saat mengirim pesan. Silakan coba lagi.', 'bad');
+        }
+
         return $this->redirectBack();
+    }
+
+    private function sendContactEmail($userName, $userEmail, $message)
+    {
+        $siteConfig = SiteConfig::current_site_config();
+
+        if (!$siteConfig->Email) {
+            throw new Exception('Admin email not configured in SiteConfig');
+        }
+
+        $AdminEmails = $this->multipleEmails($siteConfig->Email);
+
+        if (empty($AdminEmails)) {
+            throw new Exception('No valid email addresses found in SiteConfig');
+        }
+
+        foreach ($AdminEmails as $adminEmail) {
+            $email = new Email();
+            $email->setTo($adminEmail);
+            $email->setFrom($AdminEmails[0]);
+            $email->setReplyTo($userEmail);
+            $email->setSubject("Pesan Kontak dari: {$userName}");
+            $email->setHTMLTemplate('CustomEmail');
+            $email->setData([
+                'Name' => $userName,
+                'SenderEmail' => $userEmail,
+                'MessageContent' => $message,
+                'SiteName' => $siteConfig->Title,
+            ]);
+
+            $email->send();
+        }
+    }
+
+    private function multipleEmails($emailString)
+    {
+        $emails = explode(',', $emailString);
+        $validEmails = [];
+
+        foreach ($emails as $email) {
+            $email = trim($email);
+            if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $validEmails[] = $email;
+            }
+        }
+
+        return $validEmails;
+    }
+
+    public function getContactForm()
+    {
+        return $this->ContactForm();
     }
 }

@@ -26,6 +26,7 @@ Change it, enhance it and most importantly enjoy it!
 	<% require themedCSS('typography') %>
 	<% require themedCSS('form') %>
 	<% require themedCSS('layout') %> --%>
+	<% require themedCSS('custom') %>
 	<% if SiteConfig.Favicon %>
 	<link rel="icon" href="$SiteConfig.Favicon.URL" type="image/x-icon">
 	<% else %>

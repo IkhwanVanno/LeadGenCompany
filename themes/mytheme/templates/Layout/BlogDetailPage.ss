@@ -90,28 +90,4 @@
             </div>
         <% end_if %>
     </div>
-
-    <style>
-        .comment-item {
-            transition: all 0.3s ease;
-        }
-        .comment-item:hover {
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .comment-author {
-            color: #007bff;
-        }
-        .comment-text {
-            line-height: 1.6;
-        }
-        .blog-content {
-            line-height: 1.8;
-            font-size: 1.1rem;
-        }
-        .comment-form-section {
-            background-color: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-        }
-    </style>
 </main>

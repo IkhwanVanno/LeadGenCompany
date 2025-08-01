@@ -119,18 +119,4 @@
             </div>
         <% end_if %>
     </div>
-
-    <style>
-        .blog-item {
-            transition: all 0.3s ease;
-        }
-        .blog-item:hover {
-            background-color: #f8f9fa;
-            border-radius: 8px;
-            padding: 15px !important;
-        }
-        .blog-title:hover {
-            color: #007bff !important;
-        }
-    </style>
 </main>
